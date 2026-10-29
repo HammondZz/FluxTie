@@ -90,6 +90,13 @@ class GoodThreadListViewModel @Inject constructor() : ForumThreadListViewModel()
         ForumThreadListPartialChangeProducer(ForumThreadListType.Good)
 }
 
+@Stable
+@HiltViewModel
+class HotThreadListViewModel @Inject constructor() : ForumThreadListViewModel() {
+    override fun createPartialChangeProducer(): PartialChangeProducer<ForumThreadListUiIntent, ForumThreadListPartialChange, ForumThreadListUiState> =
+        ForumThreadListPartialChangeProducer(ForumThreadListType.Hot)
+}
+
 private class ForumThreadListPartialChangeProducer(val type: ForumThreadListType) :
     PartialChangeProducer<ForumThreadListUiIntent, ForumThreadListPartialChange, ForumThreadListUiState> {
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -434,12 +441,12 @@ sealed interface ForumThreadListUiEvent : UiEvent {
     ) : ForumThreadListUiEvent
 
     data class Refresh(
-        val isGood: Boolean,
+        val type: ForumThreadListType,
         val sortType: Int
     ) : ForumThreadListUiEvent
 
     data class BackToTop(
-        val isGood: Boolean
+        val type: ForumThreadListType
     ) : ForumThreadListUiEvent
 
     data class AddThread(
