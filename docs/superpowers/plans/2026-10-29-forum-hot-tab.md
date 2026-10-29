@@ -110,7 +110,7 @@ class ForumThreadListTypeTest {
 - [ ] **Step 2: 跑测试确认失败**
 
 ```bash
-pwsh -File "F:/a个人项目/第三方贴吧/build-env.ps1" :app:testDebugUnitTest --tests "*ForumThreadListTypeTest*" 2>&1 | tail -30
+cd "$WT" && "$GRADLE" :app:testDebugUnitTest --tests "*ForumThreadListTypeTest*" 2>&1 | tail -30
 ```
 
 Expected: FAIL —— 编译错误 `Unresolved reference: resolveSortType`（`Hot` 枚举项也不存在）。
@@ -143,7 +143,7 @@ internal fun ForumThreadListType.resolveHasMore(serverHasMore: Boolean): Boolean
 - [ ] **Step 4: 跑测试确认通过**
 
 ```bash
-pwsh -File "F:/a个人项目/第三方贴吧/build-env.ps1" :app:testDebugUnitTest --tests "*ForumThreadListTypeTest*" 2>&1 | tail -20
+cd "$WT" && "$GRADLE" :app:testDebugUnitTest --tests "*ForumThreadListTypeTest*" 2>&1 | tail -20
 ```
 
 Expected: PASS，`BUILD SUCCESSFUL`，6 个测试全绿。
@@ -181,7 +181,7 @@ class HotThreadListViewModel @Inject constructor() : ForumThreadListViewModel() 
 - [ ] **Step 2: 编译确认**
 
 ```bash
-pwsh -File "F:/a个人项目/第三方贴吧/build-env.ps1" :app:compileDebugKotlin 2>&1 | tail -20
+cd "$WT" && "$GRADLE" :app:compileDebugKotlin 2>&1 | tail -20
 ```
 
 Expected: `BUILD SUCCESSFUL`。
@@ -300,7 +300,7 @@ fun ForumThreadListPage(
 - [ ] **Step 4: 编译确认（预期 ForumPage 报错）**
 
 ```bash
-pwsh -File "F:/a个人项目/第三方贴吧/build-env.ps1" :app:compileDebugKotlin 2>&1 | grep -E "^e:|error:" | head -20
+cd "$WT" && "$GRADLE" :app:compileDebugKotlin 2>&1 | grep -E "^e:|error:" | head -20
 ```
 
 Expected: FAIL，`ForumPage.kt` 中 `isGood = pageIndex == 1` 与 `ForumThreadListUiEvent.Refresh(...)` / `BackToTop(...)` 的实参类型不匹配。这是预期的跨文件断裂，Task 4 修复。
@@ -559,7 +559,7 @@ Expected: FAIL，`ForumPage.kt` 中 `isGood = pageIndex == 1` 与 `ForumThreadLi
 - [ ] **Step 11: 编译确认**
 
 ```bash
-pwsh -File "F:/a个人项目/第三方贴吧/build-env.ps1" :app:compileDebugKotlin 2>&1 | grep -E "^e:|error:" | head -20
+cd "$WT" && "$GRADLE" :app:compileDebugKotlin 2>&1 | grep -E "^e:|error:" | head -20
 ```
 
 Expected: 无输出（编译通过）。
@@ -592,7 +592,7 @@ cd "F:/a个人项目/第三方贴吧/FluxTie-main" && git add app/src/main/java/
 - [ ] **Step 2: 全量构建**
 
 ```bash
-pwsh -File "F:/a个人项目/第三方贴吧/build-env.ps1" :app:assembleDebug 2>&1 | tail -25
+cd "$WT" && "$GRADLE" :app:assembleDebug 2>&1 | tail -25
 ```
 
 Expected: `BUILD SUCCESSFUL`，产物 `app/build/outputs/apk/debug/*.apk`。
@@ -600,7 +600,7 @@ Expected: `BUILD SUCCESSFUL`，产物 `app/build/outputs/apk/debug/*.apk`。
 - [ ] **Step 3: 跑全部单测**
 
 ```bash
-pwsh -File "F:/a个人项目/第三方贴吧/build-env.ps1" :app:testDebugUnitTest 2>&1 | tail -20
+cd "$WT" && "$GRADLE" :app:testDebugUnitTest 2>&1 | tail -20
 ```
 
 Expected: `BUILD SUCCESSFUL`，`ForumThreadListTypeTest` 6 个测试通过。
@@ -615,22 +615,28 @@ cd "F:/a个人项目/第三方贴吧/FluxTie-main" && git add app/src/main/res/v
 
 ## 构建环境说明
 
-本机原先没有 Android SDK 与 Gradle 分发，现已备好。**不要用 `./gradlew`**，用项目外的封装脚本（它设好了下面四个变量）：
+本机原先没有 Android SDK 与 Gradle 分发，现已备好。**不要用 `./gradlew`**，用已解压的 Gradle 并显式设置四个环境变量。
+
+在 worktree 根目录执行（把 `$WT` 换成实际 worktree 路径）：
 
 ```bash
-pwsh -File "F:/a个人项目/第三方贴吧/build-env.ps1" :app:compileDebugKotlin
-pwsh -File "F:/a个人项目/第三方贴吧/build-env.ps1" :app:testDebugUnitTest
-pwsh -File "F:/a个人项目/第三方贴吧/build-env.ps1" :app:assembleDebug
-```
-
-等价的环境变量：
-
-```bash
+export WT="F:/a个人项目/第三方贴吧/.worktrees/feature-forum-hot-tab"
 export JAVA_HOME="C:/Program Files/Java/jdk-17.0.2"
 export ANDROID_HOME="F:/a个人项目/第三方贴吧/.toolchain/android-sdk"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 export GRADLE_USER_HOME="F:/gradle-home"
+export GRADLE="F:/a个人项目/第三方贴吧/.toolchain/gradle/gradle-9.7.1/bin/gradle.bat"
+
+cd "$WT" && "$GRADLE" :app:compileDebugKotlin --no-daemon 2>&1 | tail -20
 ```
+
+`local.properties` 必须存在于 **每个** worktree（它被 `.gitignore:26` 忽略，不会随 worktree 复制）：
+
+```properties
+sdk.dir=F\:\a个人项目\第三方贴吧\.toolchain\android-sdk
+```
+
+（即 `sdk.dir=F\:个人项目\第三方贴吧\.toolchainndroid-sdk`，Java properties 转义）
 
 项目根需有 `local.properties`（已被 `.gitignore:26` 忽略）：
 
