@@ -151,6 +151,17 @@ import kotlin.math.min
 
 private val LoadDistance = 70.dp
 
+/**
+ * `FrsTabInfo.tab_type` 的取值，来自服务端 `nav_tab_info.tab`。
+ *
+ * 这两个数字是贴吧接口的既有约定，不是本地魔数：
+ * - [TAB_TYPE_HOT] = 13：热门分区。**不是每个吧都有**（抗压背锅吧/孙笑川吧有，李毅吧/原神吧没有，
+ *   后者的首个 tab 是 `tab_type = 14` 的「最新」），所以只能按「有没有」判断，不能假定存在。
+ * - [TAB_TYPE_GENERAL] = 15：通用自定义分区，配合 `is_general_tab == 1` 才是可渲染的普通页。
+ */
+private const val TAB_TYPE_HOT = 13
+private const val TAB_TYPE_GENERAL = 15
+
 fun getSortType(
     context: Context,
     forumName: String,
@@ -452,12 +463,12 @@ fun ForumPage(
     )
     val generalTabs by remember {
         derivedStateOf {
-            navTabInfo?.tab?.filter { it.isGeneralTab == 1 }?.filter { it.tabType == 15 } ?: emptyList()
+            navTabInfo?.tab?.filter { it.isGeneralTab == 1 }?.filter { it.tabType == TAB_TYPE_GENERAL } ?: emptyList()
         }
     }
 
     val hasHotTab by remember {
-        derivedStateOf { navTabInfo?.tab?.any { it.tabType == 13 } ?: false }
+        derivedStateOf { navTabInfo?.tab?.any { it.tabType == TAB_TYPE_HOT } ?: false }
     }
     val hotIndex = 0
     val latestIndex = if (hasHotTab) 1 else 0
@@ -466,6 +477,9 @@ fun ForumPage(
     val totalPageCount = generalStart + generalTabs.size
 
     val account = LocalAccount.current
+    // 落地页不需要校正：热门排在 hotIndex = 0，有热门时第 0 页就是热门页、无热门时第 0 页是最新页。
+    // navTabInfo 与 forumInfo 同源于一次 Load.Success，pager 首次组合时 hasHotTab 已是最终值，
+    // 不存在「先渲染最新再切热门」的中间态。
     val pagerState = rememberPagerState(
         initialPage = if (hasHotTab) hotIndex else latestIndex,
         pageCount = { totalPageCount }
@@ -520,13 +534,9 @@ fun ForumPage(
         derivedStateOf { currentPage < generalStart && isListAtTop && isHeaderExpanded }
     }
 
-    var landingCorrected by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(hasHotTab) {
-        if (hasHotTab && !landingCorrected) {
-            landingCorrected = true
-            if (pagerState.currentPage == 0) pagerState.scrollToPage(hotIndex)
-        }
-    }
+    // 落地页不需要校正：热门排在 index 0，有热门时第 0 页就是热门页，没有热门时第 0 页是最新页。
+    // 而且 navTabInfo 与 forumInfo 来自同一个 Load.Success（ForumViewModel），pager 首次组合时
+    // hasHotTab 已是最终值，不存在「先渲染最新再切热门」的中间态需要纠正。
 
     val isShowTopBarArea by remember {
         derivedStateOf {
@@ -1122,8 +1132,7 @@ fun ForumPage(
 
 @Composable
 fun LoadingPlaceholder(
-    forumName: String,
-    hasHotTab: Boolean = false
+    forumName: String
 ) {
     val context = LocalContext.current
 
@@ -1159,19 +1168,10 @@ fun LoadingPlaceholder(
                     .padding(16.dp)
             )
             Row(modifier = Modifier.height(48.dp)) {
-                val placeholderTabs = if (hasHotTab) {
-                    persistentListOf(
-                        stringResource(id = R.string.tab_forum_hot),
-                        stringResource(id = R.string.tab_forum_latest),
-                        stringResource(id = R.string.tab_forum_good),
-                    )
-                } else {
-                    persistentListOf(
-                        stringResource(id = R.string.tab_forum_latest),
-                        stringResource(id = R.string.tab_forum_good),
-                    )
-                }
-                placeholderTabs.fastForEach {
+                persistentListOf(
+                    stringResource(id = R.string.tab_forum_latest),
+                    stringResource(id = R.string.tab_forum_good),
+                ).fastForEach {
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 16.dp)

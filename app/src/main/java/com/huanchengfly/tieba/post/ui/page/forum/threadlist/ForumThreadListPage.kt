@@ -266,7 +266,7 @@ private fun ThreadList(
 fun ForumThreadListPage(
     forumId: Long,
     forumName: String,
-    type: ForumThreadListType = ForumThreadListType.Latest,
+    type: ForumThreadListType,
     viewModel: ForumThreadListViewModel = when (type) {
         ForumThreadListType.Good -> pageViewModel<GoodThreadListViewModel>()
         ForumThreadListType.Hot -> pageViewModel<HotThreadListViewModel>()
@@ -323,7 +323,9 @@ fun ForumThreadListPage(
     )
     val hasMore by viewModel.uiState.collectPartialAsState(
         prop1 = ForumThreadListUiState::hasMore,
-        initial = true
+        // 热门列表没有下一页，采集初值也必须是 false：produceState 在首个组合帧用的是这个字面量，
+        // 而 LoadMoreLayout 的 canLoadMore 只看它。给 true 就等于在首屏第一帧开了一次翻页窗口。
+        initial = type != ForumThreadListType.Hot
     )
     val currentPage by viewModel.uiState.collectPartialAsState(
         prop1 = ForumThreadListUiState::currentPage,
