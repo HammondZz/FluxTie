@@ -59,8 +59,21 @@ abstract class ForumThreadListViewModel :
         }
 }
 
+const val HOT_SORT_TYPE = 3
+
 enum class ForumThreadListType {
-    Latest, Good
+    Hot, Latest, Good
+}
+
+internal fun ForumThreadListType.resolveSortType(userSortType: Int): Int = when (this) {
+    ForumThreadListType.Hot -> HOT_SORT_TYPE
+    ForumThreadListType.Latest -> userSortType
+    ForumThreadListType.Good -> -1
+}
+
+internal fun ForumThreadListType.resolveHasMore(serverHasMore: Boolean): Boolean = when (this) {
+    ForumThreadListType.Hot -> false
+    ForumThreadListType.Latest, ForumThreadListType.Good -> serverHasMore
 }
 
 @Stable
@@ -97,7 +110,7 @@ private class ForumThreadListPartialChangeProducer(val type: ForumThreadListType
             forumName,
             1,
             1,
-            sortType.takeIf { type == ForumThreadListType.Latest } ?: -1,
+            type.resolveSortType(sortType),
             goodClassifyId.takeIf { type == ForumThreadListType.Good }
         )
             .map<FrsPageResponse, ForumThreadListPartialChange.FirstLoad> { response ->
@@ -112,7 +125,7 @@ private class ForumThreadListPartialChangeProducer(val type: ForumThreadListType
                     response.data_.thread_id_list,
                     (response.data_.forum?.good_classify ?: emptyList()).wrapImmutable(),
                     goodClassifyId.takeIf { type == ForumThreadListType.Good },
-                    response.data_.page.has_more == 1
+                    type.resolveHasMore(response.data_.page.has_more == 1)
                 )
             }
             .onStart { emit(ForumThreadListPartialChange.FirstLoad.Start) }
@@ -123,7 +136,7 @@ private class ForumThreadListPartialChangeProducer(val type: ForumThreadListType
             forumName,
             1,
             1,
-            sortType.takeIf { type == ForumThreadListType.Latest } ?: -1,
+            type.resolveSortType(sortType),
             goodClassifyId.takeIf { type == ForumThreadListType.Good },
             forceNew = true
         )
@@ -136,7 +149,7 @@ private class ForumThreadListPartialChangeProducer(val type: ForumThreadListType
                     response.data_.thread_id_list,
                     (response.data_.forum?.good_classify ?: emptyList()).wrapImmutable(),
                     goodClassifyId.takeIf { type == ForumThreadListType.Good },
-                    response.data_.page.has_more == 1
+                    type.resolveHasMore(response.data_.page.has_more == 1)
                 )
             }
             .onStart { emit(ForumThreadListPartialChange.Refresh.Start) }
@@ -167,7 +180,7 @@ private class ForumThreadListPartialChangeProducer(val type: ForumThreadListType
                 forumName,
                 currentPage + 1,
                 2,
-                sortType.takeIf { type == ForumThreadListType.Latest } ?: -1,
+                type.resolveSortType(sortType),
                 goodClassifyId.takeIf { type == ForumThreadListType.Good }
             )
                 .map<FrsPageResponse, ForumThreadListPartialChange.LoadMore> { response ->
@@ -178,7 +191,7 @@ private class ForumThreadListPartialChangeProducer(val type: ForumThreadListType
                         threadList = threadList,
                         threadListIds = response.data_.thread_id_list,
                         currentPage = currentPage + 1,
-                        response.data_.page.has_more == 1
+                        type.resolveHasMore(response.data_.page.has_more == 1)
                     )
                 }
         }
